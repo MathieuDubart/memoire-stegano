@@ -507,7 +507,4 @@ Hypothèse d’écran similaire à TextCryptoView :
 - **Manifest + payload externe** : message cover contient un identifiant, et le payload est un fichier/URL.
 - **Key sync** : synchronisation de clé (iCloud / compte) pour multi-device (hors scope démo).
 
----
-
-Voice chat ended
 
