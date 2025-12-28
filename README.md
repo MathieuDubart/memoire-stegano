@@ -239,6 +239,7 @@ Sur les champs de saisie/copie (TextEditor / TextField), appliquer :
 ```swift
     .textInputAutocapitalization(.never)
     .autocorrectionDisabled(true)
+```
 
 But : éviter que le système modifie le token.
 

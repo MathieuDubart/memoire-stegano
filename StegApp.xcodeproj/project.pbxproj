@@ -6,37 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DB70B4D72F01E6A200C670A4 /* README.md in Sources */ = {isa = PBXBuildFile; fileRef = DB70B4D52F01E69A00C670A4 /* README.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		DB70B4A62F01C43600C670A4 /* StegApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StegApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB70B4D52F01E69A00C670A4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		DB70B4D82F01E6A800C670A4 /* Exceptions for "StegApp" folder in "StegApp" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				README.md,
-			);
-			target = DB70B4A52F01C43600C670A4 /* StegApp */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		DB70B4D92F01E6A800C670A4 /* Exceptions for "StegApp" folder in "Compile Sources" phase from "StegApp" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = DB70B4A22F01C43600C670A4 /* Sources */;
-			membershipExceptions = (
-				README.md,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DB70B4A82F01C43600C670A4 /* StegApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				DB70B4D82F01E6A800C670A4 /* Exceptions for "StegApp" folder in "StegApp" target */,
-				DB70B4D92F01E6A800C670A4 /* Exceptions for "StegApp" folder in "Compile Sources" phase from "StegApp" target */,
-			);
 			path = StegApp;
 			sourceTree = "<group>";
 		};
@@ -58,6 +39,7 @@
 			children = (
 				DB70B4A82F01C43600C670A4 /* StegApp */,
 				DB70B4A72F01C43600C670A4 /* Products */,
+				DB70B4D52F01E69A00C670A4 /* README.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -143,6 +125,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB70B4D72F01E6A200C670A4 /* README.md in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
