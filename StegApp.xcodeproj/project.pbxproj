@@ -14,7 +14,7 @@
 		DB70B4D82F01E6A800C670A4 /* Exceptions for "StegApp" folder in "StegApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Views/README.md,
+				README.md,
 			);
 			target = DB70B4A52F01C43600C670A4 /* StegApp */;
 		};
@@ -25,7 +25,7 @@
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = DB70B4A22F01C43600C670A4 /* Sources */;
 			membershipExceptions = (
-				Views/README.md,
+				README.md,
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
