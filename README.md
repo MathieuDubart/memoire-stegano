@@ -314,3 +314,200 @@ Encodages :
 Base32 (clé export/import)
 
 Base64URL (token dans le message cover)
+
+## Extension hypothétique : Images et vidéos (prototype)
+
+Cette section propose une extrapolation du fonctionnement actuel (texte) vers des contenus **binaires** (images, vidéos), en conservant la même logique :
+- une **clé de session** (import/export),
+- une **frame** versionnée contenant un payload chiffré,
+- un **message cover** (phrase sémantique + identifiant `(ticket/code/note: …)`),
+- une intégration UX via **partage** depuis une app tierce.
+
+> Hypothèse de conception : l’objectif est une **démo technique**. On vise donc un pipeline simple, robuste, et explicable, pas une optimisation maximale.
+
+---
+
+### 1) Principe général (commun texte / image / vidéo)
+
+Dans la version “média”, on ne chiffre plus une chaîne de caractères mais un **flux binaire**.
+
+**Entrées possibles**
+- Image : JPEG / PNG / HEIC (selon support iOS)
+- Vidéo : MP4 / MOV (H.264/HEVC), etc.
+
+**Sorties possibles**
+1. **“Frame brute”** (Base64) : utile en debug / démo interne.
+2. **“Cover text”** : phrase sémantique + token (identifiant), pour copier/coller.
+3. **Fichier exporté** : un `.stg` (ou autre extension) contenant directement la frame, pour éviter la taille d’un token (recommandé pour vidéo).
+
+---
+
+### 2) Frame v2 : ajout d’un en-tête “mimetype + meta”
+
+Pour les médias, la frame doit embarquer des métadonnées minimales permettant de reconstituer le fichier.
+
+#### 2.1 Champs recommandés
+- **magic** : `SGF1`
+- **version** : `2` (ou `3` si l’on introduit un nouveau layout)
+- **payloadType** : `text | image | video` (1 octet ou enum)
+- **mimeType** : ex. `image/jpeg`, `video/mp4` (string courte)
+- **fileNameHint** (optionnel) : ex. `IMG_1234.jpg`
+- **cipherLen** + **cipherCombined**
+
+#### 2.2 Exemple de layout (v3 hypothétique)
+
+[4] magic "SGF1"
+[1] version = 3
+[1] payloadType (0=text,1=image,2=video)
+[2] mimeLen (UInt16 BE)
+[n] mimeType bytes (UTF-8)
+[2] nameLen (UInt16 BE) (optionnel, 0 si absent)
+[n] fileNameHint bytes (UTF-8) (optionnel)
+[4] cipherLen (UInt32 BE)
+[n] cipherCombined bytes
+
+
+**Pourquoi ?**
+- `mimeType` permet de reconstruire proprement un fichier au déchiffrement.
+- `payloadType` permet d’orienter l’UI (aperçu image vs lecteur vidéo).
+- `fileNameHint` améliore l’expérience d’export (partage système, sauvegarde).
+
+---
+
+### 3) Chiffrement (média)
+
+Le chiffrement reste identique :
+- clé symétrique **active** (SessionKeyStore / Keychain)
+- `ChaChaPoly.seal(data, using: key)`
+- stockage dans `cipherCombined`
+
+**Entrée binaire**
+- Image : `Data` du fichier original (ou une version recompressée pour démo)
+- Vidéo : `Data` de l’asset exporté (ou un fichier temporaire)
+
+**Remarque démo**
+- Pour image : chiffrer la `Data` brute fonctionne immédiatement.
+- Pour vidéo : chiffrer la `Data` brute fonctionne, mais peut être lourd (taille). Pour une démo, on limite la durée/résolution.
+
+---
+
+### 4) Format “cover text” : faisabilité selon le média
+
+Le cover text fonctionne très bien pour du texte car le token est court.
+
+#### 4.1 Images
+- Une image compressée (JPEG) peut rester “raisonnable” (quelques centaines de Ko).
+- Un token Base64URL d’une frame de 300 Ko devient très long (≈ 400 Ko en base64) : impraticable à copier/coller.
+
+**Conclusion (image)**
+- Le cover text est pertinent pour :
+- mini-images, icônes, captures très compressées,
+- ou seulement une démo “preuve de concept”.
+- Pour une démo réaliste, privilégier un **fichier .stg** partageable plutôt qu’un token inline.
+
+#### 4.2 Vidéos
+- Token inline quasi impossible (taille).
+- Il faut un **fichier transport** (attachment), ou un stockage/URL.
+
+**Conclusion (vidéo)**
+- Le cover text devient plutôt un **message d’accompagnement** + identifiant (non pas la frame entière), sauf si on accepte de transporter la frame comme fichier.
+
+---
+
+### 5) Deux stratégies de transport pour images/vidéos
+
+#### Stratégie A — “Frame en fichier” (recommandée démo)
+- Le résultat du chiffrement est un fichier binaire : `export.stg`
+- L’app partage ce fichier via iOS Share Sheet
+- Le destinataire ouvre le fichier dans l’app (Open In…)
+
+**Avantages**
+- Robuste
+- Fonctionne avec de gros médias (vidéo)
+- UX iOS cohérente
+
+**Inconvénients**
+- Moins “magique” que le copier/coller d’un texte
+
+#### Stratégie B — “Token inline” (réservée à petites images)
+- La frame est Base64URL directement dans le message cover
+- Copie/colle puis déchiffre
+
+**Avantages**
+- Simple à expliquer
+- Tout passe par texte
+
+**Inconvénients**
+- Taille rapidement ingérable
+
+---
+
+### 6) UX iOS : flux “Partager vers l’app”
+
+#### 6.1 Entrée depuis une app tierce
+- L’utilisateur, depuis Photos / Safari / Réseaux sociaux, utilise **Partager…**
+- Sélectionne l’app SteganoDemo (Share Extension ou “Open In” via UIDocumentInteraction)
+- L’app récupère :
+- une `UIImage` ou une URL de fichier (image)
+- une URL vidéo (asset)
+
+#### 6.2 Écran “MediaCryptoView”
+Hypothèse d’écran similaire à TextCryptoView :
+- Choix : **Chiffrer / Déchiffrer**
+- Bloc clé : génération / import / export
+- Bloc contenu :
+- aperçu image ou vidéo
+- bouton “Chiffrer”
+- Sortie :
+- fichier `.stg` à partager
+- ou message cover (si activé et si taille compatible)
+
+---
+
+### 7) Déchiffrement et restitution
+
+#### 7.1 Déchiffrement
+- L’app reçoit :
+- soit un fichier `.stg`
+- soit un token (si mode inline)
+
+Étapes :
+1. lire la frame (Data)
+2. valider magic/version
+3. extraire `mimeType` + `cipherCombined`
+4. déchiffrer avec clé active
+5. reconstruire le binaire original
+
+#### 7.2 Restitution UI
+- Image :
+- `UIImage(data: decryptedData)` et affichage preview
+- export vers Photos ou partage
+- Vidéo :
+- écrire `decryptedData` dans un fichier temporaire `.mp4/.mov`
+- lecture via `AVPlayer`
+- export/partage
+
+---
+
+### 8) Contraintes et limites (à mentionner explicitement)
+
+- **Taille** : le token inline n’est pas viable pour la vidéo et rarement viable pour les images.
+- **Performance** : chiffrement/déchiffrement sur gros fichiers peut être lent et consommateur mémoire.
+- Pour une démo : limiter la taille et préférer un traitement fichier (streaming) plus tard.
+- **Stockage temporaire** : la vidéo nécessite quasi toujours un fichier temporaire sur disque.
+- **Compatibilité** : certains formats (HEIC/HEVC) peuvent nécessiter une conversion/export.
+- **Sécurité** : la confidentialité dépend du secret de clé. Le cover text n’est pas un mécanisme de sécurité.
+
+---
+
+### 9) Pistes d’évolution “production” (optionnel)
+
+- **Streaming / chunking** : chiffrer par blocs pour éviter de charger tout en mémoire.
+- **Compression contrôlée** : recompression JPEG ou transcodage vidéo pour réduire le poids (mode “démo”).
+- **Manifest + payload externe** : message cover contient un identifiant, et le payload est un fichier/URL.
+- **Key sync** : synchronisation de clé (iCloud / compte) pour multi-device (hors scope démo).
+
+---
+
+Voice chat ended
+
