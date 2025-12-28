@@ -10,9 +10,33 @@
 		DB70B4A62F01C43600C670A4 /* StegApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StegApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DB70B4D82F01E6A800C670A4 /* Exceptions for "StegApp" folder in "StegApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Views/README.md,
+			);
+			target = DB70B4A52F01C43600C670A4 /* StegApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		DB70B4D92F01E6A800C670A4 /* Exceptions for "StegApp" folder in "Compile Sources" phase from "StegApp" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = DB70B4A22F01C43600C670A4 /* Sources */;
+			membershipExceptions = (
+				Views/README.md,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DB70B4A82F01C43600C670A4 /* StegApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DB70B4D82F01E6A800C670A4 /* Exceptions for "StegApp" folder in "StegApp" target */,
+				DB70B4D92F01E6A800C670A4 /* Exceptions for "StegApp" folder in "Compile Sources" phase from "StegApp" target */,
+			);
 			path = StegApp;
 			sourceTree = "<group>";
 		};
