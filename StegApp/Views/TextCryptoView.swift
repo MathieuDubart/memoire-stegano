@@ -1,506 +1,274 @@
-//
-//  TextCryptoView.swift
-//  StegApp
-//
-//  Created by Mathieu Dubart on 28/12/2025.
-//
-
-import SwiftUI
-
 import SwiftUI
 import UIKit
 
 struct TextCryptoView: View {
-    
-    // MARK: - UI types
-    
     enum Mode: String, CaseIterable, Identifiable {
-        case encrypt = "Chiffrer"
-        case decrypt = "Déchiffrer"
+        case encrypt = "ENCRYPT"
+        case decrypt = "DECRYPT"
         var id: String { rawValue }
     }
     
-    enum OutputFormat: String, CaseIterable, Identifiable {
-        case base64 = "Base64"
-        case covertext = "Message"
+    enum LocalCoverStyle: String, CaseIterable, Identifiable {
+        case neutral = "neutral"
+        case poetic = "poetic"
+        case tech = "tech"
         var id: String { rawValue }
     }
-    
-    // MARK: - Dependencies
-    
-    private let framePrefix = "STGFRAME1:"
-    private let crypto = CryptoService()
-    private let sessionKeys = SessionKeyStore()
-    
-    // MARK: - State
     
     @State private var mode: Mode = .encrypt
-    @State private var outputFormat: OutputFormat = .covertext
-    @State private var style: CoverStyle = .neutral
-    
     @State private var input: String = ""
     @State private var output: String = ""
-    @State private var errorMsg: String?
-    @State private var showCopiedToast = false
+    @State private var showError: Bool = false
+    @State private var errorText: String = ""
+    @State private var style: LocalCoverStyle = .tech
+    @FocusState private var inputFocused: Bool
     
-    @State private var keyString: String = ""
-    @State private var keyStatus: String = "Aucune clé active"
+    private let crypto = CryptoService()
     
-    // MARK: - View
+    private func toGlobalCoverStyle(_ local: LocalCoverStyle) -> CoverStyle {
+        switch local {
+        case .neutral: return .neutral
+        case .poetic: return .poetic
+        case .tech: return .tech
+        }
+    }
+    
+    // Couleur dynamique
+    private var accentColor: Color {
+        mode == .encrypt ? .blue : .orange
+    }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    
-                    header
-                    
-                    Picker("Mode", selection: $mode) {
-                        ForEach(Mode.allCases) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    keyCard
-                    
-                    card(title: "Format de sortie", subtitle: "Message sémantique + identifiant, ou frame brute") {
-                        Picker("Format", selection: $outputFormat) {
-                            ForEach(OutputFormat.allCases) { f in
-                                Text(f.rawValue).tag(f)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        
-                        if outputFormat == .covertext {
-                            Picker("Style", selection: $style) {
-                                ForEach(CoverStyle.allCases) { s in
-                                    Text(s.rawValue).tag(s)
-                                }
-                            }
-                            .padding(.top, 4)
-                            
-                            Text("Le message reste “humain”. Le payload est transporté via un identifiant (id/ref) extractible par l’app.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("Sortie: \(framePrefix)<base64> (copier/coller).")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    inputCard
-                    
-                    actionButtons
-                    
-                    if let errorMsg {
-                        errorBanner(errorMsg)
-                    }
-                    
-                    outputCard
-                    
-                    Spacer(minLength: 12)
+        TabView {
+            mainContent
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Home")
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-            }
-            .navigationTitle("SteganoDemo")
-            .navigationBarTitleDisplayMode(.inline)
-            .overlay(alignment: .top) {
-                if showCopiedToast {
-                    toast("Copié dans le presse-papiers")
-                        .padding(.top, 10)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .background(
-                LinearGradient(
-                    colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-            )
-            .onAppear {
-                refreshKeyStatus()
-            }
         }
+        .tint(accentColor)
     }
     
-    // MARK: - Sections
-    
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Texte • Démo")
-                .font(.title2).fontWeight(.semibold)
-            Text("Clé séparée (export/import) + message sémantique + payload décodable.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 6)
-    }
-    
-    private var keyCard: some View {
-        card(
-            title: "Clé (partage séparé)",
-            subtitle: "Nécessaire pour déchiffrer. La clé n’est pas incluse dans le message."
-        ) {
-            VStack(alignment: .leading, spacing: 10) {
+    private var mainContent: some View {
+        VStack(spacing: 28) {
+            // En-tête
+            VStack(spacing: 14) {
+                Text("CryptoNote")
+                    .font(.largeTitle.weight(.bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Text(keyStatus)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Picker("Mode", selection: $mode) {
+                    ForEach(Mode.allCases) { m in
+                        Text(m.rawValue).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            
+            // Zone d'entrée
+            HStack {
+                Spacer()
+                Button(action: pasteInput) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.clipboard")
+                        Text("Paste")
+                            .font(.caption).bold()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(accentColor.opacity(0.12))
+                    )
+                    .foregroundColor(accentColor)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.trailing, 2)
+            
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color(.separator), lineWidth: 1)
+                    )
                 
-                TextField("Clé Base32 (coller/importer ici)", text: $keyString)
+                TextEditor(text: $input)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 12)
+                    .background(Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .opacity(input.isEmpty ? 0.85 : 1)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
-                    .textFieldStyle(.roundedBorder)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .focused($inputFocused)
+                    .onChange(of: input) { oldValue, newValue in
+                        // If the user presses return at the end, remove it and dismiss keyboard
+                        if newValue.hasSuffix("\n") {
+                            input = String(newValue.dropLast())
+                            inputFocused = false
+                        }
+                    }
                 
-                HStack(spacing: 10) {
-                    Button {
-                        generateKey()
-                    } label: {
-                        Label("Générer", systemImage: "key.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    
-                    Button {
-                        copyKey()
-                    } label: {
-                        Label("Copier", systemImage: "doc.on.doc")
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(keyString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    
-                    Button {
-                        importKey()
-                    } label: {
-                        Label("Importer", systemImage: "tray.and.arrow.down")
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(keyString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                if input.isEmpty {
+                    Text(mode == .encrypt
+                        ? "Enter your message here... (Key will be embedded)"
+                        : "Paste encrypted message...")
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 18)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(nil)
                 }
-                
-                Text("Astuce démo : partage la clé une fois (ex. “code de session”), puis partage les messages (id:…).")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
-        }
-    }
-    
-    private var inputCard: some View {
-        card(
-            title: "Entrée",
-            subtitle: mode == .encrypt
-            ? "Texte clair à chiffrer"
-            : "Colle un message généré par l’app (id/ref) ou une frame \(framePrefix)…"
-        ) {
-            TextEditor(text: $input)
-                .frame(minHeight: 140)
-                .padding(10)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.quaternary, lineWidth: 1)
-                )
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled(true)
+            .frame(height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(.horizontal, 2)
             
-            HStack(spacing: 10) {
-                Button {
-                    input = UIPasteboard.general.string ?? input
-                } label: {
-                    Label("Coller", systemImage: "doc.on.clipboard")
+            // Picker style uniquement si encrypt
+            if mode == .encrypt {
+                Picker("Cover Style", selection: $style) {
+                    ForEach(LocalCoverStyle.allCases) { s in
+                        Text(s.rawValue.capitalized).tag(s)
+                    }
                 }
-                .buttonStyle(.bordered)
-                
-                Button {
-                    input = ""
-                } label: {
-                    Label("Vider", systemImage: "xmark.circle")
-                }
-                .buttonStyle(.bordered)
-                .tint(.secondary)
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 2)
             }
-        }
-    }
-    
-    private var outputCard: some View {
-        card(
-            title: "Résultat",
-            subtitle: mode == .encrypt ? "Message à partager" : "Texte clair"
-        ) {
-            TextEditor(text: $output)
-                .frame(minHeight: 140)
-                .padding(10)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.quaternary, lineWidth: 1)
-                )
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled(true)
             
-            HStack(spacing: 10) {
-                Button {
-                    UIPasteboard.general.string = output
-                    toastCopied()
-                } label: {
-                    Label("Copier", systemImage: "doc.on.doc")
+            // Bouton d'action principal
+            Button(action: mainButtonAction) {
+                HStack {
+                    Image(systemName: mode == .encrypt ? "lock.fill" : "lock.open.fill")
+                    Text(mode == .encrypt ? "Encrypt Message" : "Decrypt Message")
+                        .fontWeight(.semibold)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(output.isEmpty)
-                
-                Button {
-                    output = ""
-                } label: {
-                    Label("Vider", systemImage: "xmark.circle")
-                }
-                .buttonStyle(.bordered)
-                .tint(.secondary)
-            }
-        }
-    }
-    
-    private var actionButtons: some View {
-        HStack(spacing: 12) {
-            Button {
-                run()
-            } label: {
-                Label(
-                    mode == .encrypt ? "Chiffrer" : "Déchiffrer",
-                    systemImage: mode == .encrypt ? "lock.fill" : "lock.open.fill"
-                )
+                .foregroundColor(.white)
+                .padding(.vertical, 18)
                 .frame(maxWidth: .infinity)
+                .background(
+                    Capsule()
+                        .fill(accentColor)
+                )
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .buttonStyle(.plain)
+            .padding(.horizontal, 2)
             
-            Button {
-                let tmp = input
-                input = output
-                output = tmp
-            } label: {
-                Label("Swap", systemImage: "arrow.left.arrow.right")
-                    .frame(maxWidth: 120)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(output.isEmpty && input.isEmpty)
-        }
-    }
-    
-    // MARK: - Logic
-    
-    private func run() {
-        do {
-            errorMsg = nil
-            
-            // Clé requise pour chiffrer/déchiffrer
-            _ = try sessionKeys.loadKey()
-            
-            switch mode {
-            case .encrypt:
-                let frame = try crypto.encryptFrame(plaintext: input)
-                
-                switch outputFormat {
-                case .base64:
-                    output = framePrefix + frame.base64EncodedString()
-                case .covertext:
-                    output = CoverTextCodec.encode(frame: frame, style: style)
+            // Zone de résultat
+            HStack {
+                Spacer()
+                Button(action: copyOutput) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                        Text("Copy")
+                            .font(.caption).bold()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(accentColor.opacity(0.12))
+                    )
+                    .foregroundColor(accentColor)
                 }
-                
-            case .decrypt:
-                let frameData = try decodeFrameData(from: input)
-                output = try crypto.decryptFrame(frameData)
+                .buttonStyle(.plain)
+                .disabled(output.isEmpty)
+                .opacity(output.isEmpty ? 0.3 : 1)
             }
+            .padding(.trailing, 2)
             
-        } catch {
-            errorMsg = prettyError(error)
-        }
-    }
-    
-    private func decodeFrameData(from text: String) throws -> Data {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // 1) Frame base64 directe (tolère si le préfixe est au milieu d’un texte)
-        if let range = trimmed.range(of: framePrefix) {
-            let after = trimmed[range.upperBound...]
-            let token = after.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) ?? ""
-            if let data = Data(base64Encoded: token), FrameCodec.looksLikeFrame(data) {
-                return data
-            }
-        }
-        
-        // 2) Message covertext (phrase + id/ref)
-        if let data = try? CoverTextCodec.decode(coverText: trimmed),
-           FrameCodec.looksLikeFrame(data) {
-            return data
-        }
-        
-        throw CryptoError.invalidInput
-    }
-    
-    // MARK: - Key actions
-    
-    private func refreshKeyStatus() {
-        do {
-            _ = try sessionKeys.loadKey()
-            let exported = try sessionKeys.exportKeyString()
-            keyString = formatKeyForDisplay(exported)
-            keyStatus = "Clé active disponible"
-        } catch {
-            keyStatus = "Aucune clé active (génère ou importe)"
-        }
-    }
-    
-    private func generateKey() {
-        do {
-            _ = try sessionKeys.generateAndSaveKey()
-            let exported = try sessionKeys.exportKeyString()
-            keyString = formatKeyForDisplay(exported)
-            keyStatus = "Clé générée et enregistrée"
-            UIPasteboard.general.string = normalizeKeyInput(keyString)
-            toastCopied()
-        } catch {
-            errorMsg = prettyError(error)
-        }
-    }
-    
-    private func copyKey() {
-        let normalized = normalizeKeyInput(keyString)
-        guard !normalized.isEmpty else { return }
-        UIPasteboard.general.string = normalized
-        toastCopied()
-    }
-    
-    private func importKey() {
-        do {
-            let normalized = normalizeKeyInput(keyString)
-            try sessionKeys.importKeyString(normalized)
-            keyString = formatKeyForDisplay(normalized)
-            keyStatus = "Clé importée et enregistrée"
-            toastCopied()
-        } catch {
-            errorMsg = prettyError(error)
-        }
-    }
-    
-    // MARK: - Helpers (UI)
-    
-    private func card(title: String, subtitle: String? = nil, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                if let subtitle {
-                    Text(subtitle).font(.footnote).foregroundStyle(.secondary)
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+                
+                ScrollView {
+                    Text(output.isEmpty
+                         ? (mode == .encrypt
+                            ? "9d+3JdYkLm... (encrypted message example)"
+                            : "This is your decrypted message.")
+                         : output)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
-            content()
-        }
-        .padding(14)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(.quaternary, lineWidth: 1)
-        )
-    }
-    
-    private func errorBanner(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            Text(message)
-                .font(.footnote)
+            .frame(height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 2)
+            
+            // Affichage d'erreur si besoin
+            if showError {
+                Text(errorText)
+                    .foregroundColor(.red)
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 2)
+            }
+            
             Spacer()
         }
-        .padding(12)
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.quaternary, lineWidth: 1)
-        )
+        .padding(.horizontal)
+        .padding(.top, 26)
+        .background(Color(.systemBackground).ignoresSafeArea())
+        .contentShape(Rectangle())
+        .onTapGesture { inputFocused = false }
+        .onAppear { inputFocused = true }
     }
     
-    private func toast(_ text: String) -> some View {
-        Text(text)
-            .font(.footnote.weight(.semibold))
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 1))
-            .shadow(radius: 8)
-    }
-    
-    private func toastCopied() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
-            showCopiedToast = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
-                showCopiedToast = false
+    private func mainButtonAction() {
+        showError = false
+        errorText = ""
+        output = ""
+        
+        do {
+            switch mode {
+            case .encrypt:
+                let encryptedFrame = try crypto.encryptFrame(plaintext: input)
+                let coverText = CoverTextCodec.encode(frame: encryptedFrame, style: toGlobalCoverStyle(style))
+                output = coverText
+            case .decrypt:
+                let frame = try CoverTextCodec.decode(coverText: input)
+                let decrypted = try crypto.decryptFrame(frame)
+                output = decrypted
             }
+        } catch {
+            errorText = prettyError(error)
+            showError = true
         }
     }
     
-    // MARK: - Helpers (errors / formatting)
+    private func copyOutput() {
+        guard !output.isEmpty else { return }
+        UIPasteboard.general.string = output
+    }
+    
+    private func pasteInput() {
+        if let str = UIPasteboard.general.string {
+            input = str
+            inputFocused = true
+        }
+    }
     
     private func prettyError(_ error: Error) -> String {
-        if let cryptoError = error as? CryptoError {
-            switch cryptoError {
-            case .invalidInput:
-                return "Entrée invalide. Colle une frame \(framePrefix)… ou un message généré par l’app (id/ref)."
-            case .decryptionFailed:
-                return "Déchiffrement impossible (mauvaise clé ou message corrompu)."
+        // You can customize this as needed. Here's a simple example:
+        // If the error conforms to LocalizedError, use its description, else fallback.
+        if let localError = error as? LocalizedError {
+            if let description = localError.errorDescription {
+                return description
             }
         }
-        
-        if error is FrameError {
-            return "Frame illisible (magic/version/format)."
-        }
-        
-        if error is CoverCodecError {
-            return "Message non décodable (id/ref manquant ou payload invalide)."
-        }
-        
-        if error is SessionKeyError {
-            return "Clé manquante ou invalide. Génère ou importe une clé avant de chiffrer/déchiffrer."
-        }
-        
-        return "Erreur: \(String(describing: error))"
+        return error.localizedDescription
     }
-    
-    private func normalizeKeyInput(_ s: String) -> String {
-        s.uppercased()
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "\n", with: "")
-            .replacingOccurrences(of: "\t", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    private func formatKeyForDisplay(_ s: String) -> String {
-        let cleaned = normalizeKeyInput(s)
-        guard !cleaned.isEmpty else { return "" }
-        
-        var out: [String] = []
-        out.reserveCapacity((cleaned.count + 3) / 4)
-        
-        var i = cleaned.startIndex
-        while i < cleaned.endIndex {
-            let j = cleaned.index(i, offsetBy: 4, limitedBy: cleaned.endIndex) ?? cleaned.endIndex
-            out.append(String(cleaned[i..<j]))
-            i = j
-        }
-        
-        // groups separated by spaces
-        return out.joined(separator: " ")
-    }
+}
+
+#Preview {
+    TextCryptoView()
 }

@@ -98,4 +98,21 @@ struct SessionKeyStore {
         
         guard status == errSecSuccess else { throw SessionKeyError.keychainError(status) }
     }
+    
+    func deleteKey() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        
+        let status = SecItemDelete(query as CFDictionary)
+        
+        // OK si supprimé ou déjà absent
+        if status == errSecSuccess || status == errSecItemNotFound {
+            return
+        }
+        
+        throw SessionKeyError.keychainError(status)
+    }
 }

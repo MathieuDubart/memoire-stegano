@@ -15,6 +15,14 @@ enum CoverCodecError: Error {
     case invalidPayload
 }
 
+struct CoverParts {
+    let sentence: String
+    let label: String
+    let token: String
+    
+    var combined: String { "\(sentence) (\(label): \(token))" }
+}
+
 struct CoverTextCodec {
     
     // MARK: - Base64URL helpers
@@ -116,5 +124,23 @@ struct CoverTextCodec {
         let token = String(trimmed[tokenRange])
         guard let data = b64urlDecode(token) else { throw CoverCodecError.invalidPayload }
         return data
+    }
+    
+    static func encodeParts(frame: Data, style: CoverStyle) -> CoverParts {
+        let token = b64urlEncode(frame)
+        let sentence = coverSentence(style: style)
+        let key = label(for: style)
+        return CoverParts(sentence: sentence, label: key, token: token)
+    }
+    
+    /// Optionnel: extraire token d’un message déjà combiné (si tu en as besoin côté UI)
+    static func extractToken(from coverText: String) -> String? {
+        let pattern = #"(?:ticket|build|case|code|id|note|vers)\s*:\s*([A-Za-z0-9_-]+)"#
+        let range = NSRange(coverText.startIndex..<coverText.endIndex, in: coverText)
+        let regex = try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        guard let m = regex.firstMatch(in: coverText, options: [], range: range),
+              m.numberOfRanges >= 2,
+              let r = Range(m.range(at: 1), in: coverText) else { return nil }
+        return String(coverText[r])
     }
 }
