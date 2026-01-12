@@ -160,8 +160,27 @@ struct TextCryptoView: View {
             .padding(.horizontal, 2)
             
             // Zone de résultat
-            HStack {
+            HStack(spacing: 8) {
                 Spacer()
+                if mode == .encrypt {
+                    Button(action: tweetOutput) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bird")
+                            Text("Tweet")
+                                .font(.caption).bold()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(accentColor.opacity(0.12))
+                        )
+                        .foregroundColor(accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(output.isEmpty)
+                    .opacity(output.isEmpty ? 0.3 : 1)
+                }
                 Button(action: copyOutput) {
                     HStack(spacing: 4) {
                         Image(systemName: "doc.on.doc")
@@ -266,16 +285,24 @@ struct TextCryptoView: View {
         }
     }
     
+    private func tweetOutput() {
+        guard !output.isEmpty else { return }
+        let text = output
+        let allowed = CharacterSet.urlQueryAllowed
+        let encoded = text.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        // Try Twitter app first, then fallback to web intent
+        if let appURL = URL(string: "twitter://post?message=\(encoded)"),
+           UIApplication.shared.canOpenURL(appURL) {
+            UIApplication.shared.open(appURL)
+        } else if let webURL = URL(string: "https://twitter.com/intent/tweet?text=\(encoded)") {
+            UIApplication.shared.open(webURL)
+        }
+    }
+    
     private func handleIncomingFromShortcuts() {
-        let defaults = UserDefaults.standard
-        guard let incoming = defaults.string(forKey: "IncomingText") else { return }
-        // Clear so we don't handle it again
-        defaults.removeObject(forKey: "IncomingText")
-        defaults.removeObject(forKey: "IncomingMode")
-        // Apply to UI and auto-decrypt
-        mode = .decrypt
-        input = incoming
-        mainButtonAction()
+        // Placeholder for handling incoming data from Shortcuts or other entry points.
+        // If you plan to support Shortcuts input, parse it here and update `input`,
+        // `mode`, and `inputFocused` as appropriate.
     }
     
     private func prettyError(_ error: Error) -> String {
@@ -293,3 +320,4 @@ struct TextCryptoView: View {
 #Preview {
     TextCryptoView()
 }
+
