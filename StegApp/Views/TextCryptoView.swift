@@ -22,6 +22,7 @@ struct TextCryptoView: View {
     @State private var errorText: String = ""
     @State private var style: LocalCoverStyle = .tech
     @FocusState private var inputFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
     
     private let crypto = CryptoService()
     
@@ -220,7 +221,15 @@ struct TextCryptoView: View {
         .background(Color(.systemBackground).ignoresSafeArea())
         .contentShape(Rectangle())
         .onTapGesture { inputFocused = false }
-        .onAppear { inputFocused = true }
+        .onAppear {
+            inputFocused = true
+            handleIncomingFromShortcuts()
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                handleIncomingFromShortcuts()
+            }
+        }
     }
     
     private func mainButtonAction() {
@@ -255,6 +264,18 @@ struct TextCryptoView: View {
             input = str
             inputFocused = true
         }
+    }
+    
+    private func handleIncomingFromShortcuts() {
+        let defaults = UserDefaults.standard
+        guard let incoming = defaults.string(forKey: "IncomingText") else { return }
+        // Clear so we don't handle it again
+        defaults.removeObject(forKey: "IncomingText")
+        defaults.removeObject(forKey: "IncomingMode")
+        // Apply to UI and auto-decrypt
+        mode = .decrypt
+        input = incoming
+        mainButtonAction()
     }
     
     private func prettyError(_ error: Error) -> String {
